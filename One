@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Memory Card Game</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <style>
+        .card {
+            width: 100px;
+            height: 140px;
+            perspective: 1000px;
+        }
+        .card-inner {
+            width: 100%;
+            height: 100%;
+            position: relative;
+            transition: transform 0.6s;
+            transform-style: preserve-3d;
+        }
+        .card.flipped .card-inner {
+            transform: rotateY(180deg);
+        }
+        .card-front, .card-back {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            backface-visibility: hidden;
+        }
+        .card-front {
+            background-color: #2d3748;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2rem;
+        }
+        .card-back {
+            background-color: #4a5568;
+            transform: rotateY(180deg);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+    </style>
+</head>
+<body class="bg-gray-900 text-white flex flex-col items-center justify-center min-h-screen space-y-4">
+    <div class="text-center">
+        <label for="difficulty" class="block mb-2">Select Difficulty:</label>
+        <select id="difficulty" class="p-2 rounded bg-gray-700">
+            <option value="easy">Easy</option>
+            <option value="medium">Medium</option>
+            <option value="hard">Hard</option>
+        </select>
+        <button id="startGame" class="ml-4 p-2 bg-blue-500 rounded">Start Game</button>
+    </div>
+    <div class="text-center">
+        <p>Moves: <span id="moves">0</span></p>
+        <p>Time: <span id="timer">0:00</span></p>
+    </div>
+    <div id="game" class="grid grid-cols-4 gap-4">
+        <!-- Cards will be added dynamically here -->
+    </div>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const cardsArray = [
+                { name: 'A', img: 'A' },
+                { name: 'B', img: 'B' },
+                { name: 'C', img: 'C' },
+                { name: 'D', img: 'D' },
+                { name: 'E', img: 'E' },
+                { name: 'F', img: 'F' },
+                { name: 'G', img: 'G' },
+                { name: 'H', img: 'H' }
+            ];
+
+            let game = document.getElementById('game');
+            let movesElement = document.getElementById('moves');
+            let timerElement = document.getElementById('timer');
+            let startButton = document.getElementById('startGame');
+            let difficultySelector = document.getElementById('difficulty');
+            let firstCard = null;
+            let secondCard = null;
+            let lockBoard = false;
+            let moves = 0;
+            let timer = null;
+            let startTime = null;
+
+            function shuffle(array) {
+                array.sort(() => Math.random() - 0.5);
+            }
+
+            function startGame() {
+                resetGame();
+                let difficulty = difficultySelector.value;
+                let cardsToUse = getCardsForDifficulty(difficulty);
+                createBoard(cardsToUse);
+                startTimer();
+            }
+
+            function getCardsForDifficulty(difficulty) {
+                switch(difficulty) {
+                    case 'medium':
+                        return cardsArray.slice(0, 6).concat(cardsArray.slice(0, 6));
+                    case 'hard':
+                        return cardsArray.concat(cardsArray);
+                    case 'easy':
+                    default:
+                        return cardsArray.slice(0, 4).concat(cardsArray.slice(0, 4));
+                }
+            }
+
+            function createBoard(cards) {
+                shuffle(cards);
+                game.innerHTML = '';
+                cards.forEach(card => {
+                    let cardElement = document.createElement('div');
+                    cardElement.classList.add('card');
+                    cardElement.dataset.name = card.name;
+
+                    let cardInner = document.createElement('div');
+                    cardInner.classList.add('card-inner');
+
+                    let cardFront = document.createElement('div');
+                    cardFront.classList.add('card-front');
+                    cardFront.textContent = card.img;
+
+                    let cardBack = document.createElement('div');
+                    cardBack.classList.add('card-back');
+                    cardBack.textContent = '?';
+
+                    cardInner.appendChild(cardFront);
+                    cardInner.appendChild(cardBack);
+                    cardElement.appendChild(cardInner);
+                    game.appendChild(cardElement);
+
+                    cardElement.addEventListener('click', flipCard);
+                });
+            }
+
+            function flipCard() {
+                if (lockBoard) return;
+                if (this === firstCard) return;
+
+                this.classList.add('flipped');
+
+                if (!firstCard) {
+                    firstCard = this;
+                    return;
+                }
+
+                secondCard = this;
+                moves++;
+                movesElement.textContent = moves;
+                checkForMatch();
+            }
+
+            function checkForMatch() {
+                let isMatch = firstCard.dataset.name === secondCard.dataset.name;
+
+                isMatch ? disableCards() : unflipCards();
+            }
+
+            function disableCards() {
+                firstCard.removeEventListener('click', flipCard);
+                secondCard.removeEventListener('click', flipCard);
+
+                resetBoard();
+            }
+
+            function unflipCards() {
+                lockBoard = true;
+
+                setTimeout(() => {
+                    firstCard.classList.remove('flipped');
+                    secondCard.classList.remove('flipped');
+
+                    resetBoard();
+                }, 1500);
+            }
+
+            function resetBoard() {
+                [firstCard, secondCard, lockBoard] = [null, null, false];
+            }
+
+            function startTimer() {
+                startTime = Date.now();
+                timer = setInterval(updateTimer, 1000);
+            }
+
+            function updateTimer() {
+                let elapsedTime = Date.now() - startTime;
+                let minutes = Math.floor(elapsedTime / 60000);
+                let seconds = Math.floor((elapsedTime % 60000) / 1000);
+                timerElement.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+            }
+
+            function resetGame() {
+                moves = 0;
+                movesElement.textContent = moves;
+                clearInterval(timer);
+                timerElement.textContent = '0:00';
+            }
+
+            startButton.addEventListener('click', startGame);
+        });
+    </script>
+</body>
+</html>
